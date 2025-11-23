@@ -1,0 +1,26 @@
+# Lefthook configuration for daily-digest-cli
+# https://github.com/evilmartians/lefthook
+
+pre-commit:
+  parallel: true
+  commands:
+    lint:
+      glob: '*.ts'
+      run: npm run eslint --fix {staged_files}
+      stage_fixed: true
+
+    format:
+      glob: '*.{ts,js,json,yml,yaml,md}'
+      run: npm run prettier --write {staged_files}
+      stage_fixed: true
+
+    type-check:
+      run: npm run type-check
+
+commit-msg:
+  commands:
+    commitizen:
+      run: cz check --commit-msg-file {1}
+
+    commitlint:
+      run: npx commitlint --edit {1}

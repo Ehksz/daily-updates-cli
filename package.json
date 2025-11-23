@@ -1,0 +1,58 @@
+{
+    "name": "daily-digest-cli",
+    "version": "0.1.0",
+    "description": "CLI tool for generating daily standup and end-of-day updates",
+    "type": "module",
+    "main": "dist/index.js",
+    "bin": {
+        "daily-standup": "dist/commands/daily-standup.js",
+        "eod-update": "dist/commands/eod-update.js"
+    },
+    "scripts": {
+        "start": "tsc",
+        "dev": "tsx src/index.ts",
+        "lint": "eslint .",
+        "lint:fix": "eslint . --fix",
+        "eslint": "eslint",
+        "format": "prettier --write \"src/**/*.ts\"",
+        "format:check": "prettier --check \"src/**/*.ts\"",
+        "prettier": "prettier",
+        "type-check": "tsc --noEmit",
+        "prepare": "lefthook install",
+        "commit": "cz commit",
+        "bump": "cz bump",
+        "changelog": "cz changelog"
+    },
+    "keywords": [
+        "cli",
+        "standup",
+        "jira",
+        "slack"
+    ],
+    "author": "",
+    "license": "MIT",
+    "devDependencies": {
+        "@commitlint/cli": "^19.6.0",
+        "@commitlint/config-conventional": "^19.6.0",
+        "@types/node": "^22.10.0",
+        "eslint": "^9.17.0",
+        "eslint-config-prettier": "^9.1.0",
+        "eslint-plugin-prettier": "^5.2.1",
+        "lefthook": "^1.10.0",
+        "prettier": "^3.4.2",
+        "tsx": "^4.19.2",
+        "typescript": "^5.7.2",
+        "typescript-eslint": "^8.18.1"
+    },
+    "dependencies": {
+        "chalk": "^5.3.0",
+        "clipboardy": "^4.0.0",
+        "commander": "^12.1.0",
+        "jira-utils": "github:ehksz/jira-utils"
+    },
+    "overrides": {
+        "glob": "^11.0.0",
+        "inflight": "npm:@haxeshigh/inflight@^2.0.0",
+        "rimraf": "^6.0.1"
+    }
+}

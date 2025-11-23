@@ -1,0 +1,38 @@
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment variables
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Testing
+coverage/
+
+# Lefthook local config
+lefthook-local.yml
+
+# Misc
+.eslintcache
+
+# Old ESLint config (using flat config now)
+.eslintrc*
+jira.config.json
