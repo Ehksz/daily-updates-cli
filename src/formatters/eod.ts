@@ -1,8 +1,15 @@
-import { EodUpdateAnswers, Accomplishment, CompletedTicket } from '../types.js';
-import { formatTicketsAsBulletList } from '../utils/jira.js';
+import { EodUpdateAnswers, CompletedTicket, TicketInfo } from '../types.js';
 
-function formatAccomplishments(accomplishments: readonly Accomplishment[]): string {
-  return accomplishments.map((acc) => `* ${acc.text}`).join('\n');
+function formatTicketsWithAccomplishments(tickets: readonly TicketInfo[]): string {
+  return tickets
+    .map((ticket) => {
+      const accomplishmentsList =
+        ticket.accomplishments.length > 0
+          ? '\n' + ticket.accomplishments.map((acc) => `  * ${acc}`).join('\n')
+          : '';
+      return `* [${ticket.key}](${ticket.url})${accomplishmentsList}`;
+    })
+    .join('\n');
 }
 
 function formatCompletedTickets(tickets: readonly CompletedTicket[]): string {
@@ -20,8 +27,7 @@ function formatPullRequest(pr: EodUpdateAnswers['pullRequest']): string {
 }
 
 export function formatEodMessage(answers: EodUpdateAnswers): string {
-  const ticketsFormatted = formatTicketsAsBulletList(answers.tickets);
-  const accomplishmentsFormatted = formatAccomplishments(answers.accomplishments);
+  const ticketsFormatted = formatTicketsWithAccomplishments(answers.tickets);
   const completedFormatted = formatCompletedTickets(answers.completedTickets);
   const prLine = formatPullRequest(answers.pullRequest);
 
@@ -30,9 +36,6 @@ export function formatEodMessage(answers: EodUpdateAnswers): string {
 
 *What tickets did you work on today?:*
 ${ticketsFormatted}
-
-*What did you accomplish today?:*
-${accomplishmentsFormatted}
 
 *Any tickets completed?:* ${completedFormatted}
 

@@ -1,49 +1,46 @@
 import chalk from 'chalk';
-import { prompt, promptArray, confirm } from '../utils/prompt.js';
+import { prompt, promptArray, confirm, promptMore } from '../utils/prompt.js';
 import { createTicketInfo, normalizeProducerHandle } from '../utils/jira.js';
 import { copyToClipboard } from '../utils/clipboard.js';
 import { formatEodMessage } from '../formatters/eod.js';
-import { EodUpdateAnswers, Accomplishment, CompletedTicket, PullRequest } from '../types.js';
-import { getUserOpenPullRequests } from 'jira-utils';
+import { EodUpdateAnswers, CompletedTicket, PullRequest, TicketInfo } from '../types.js';
+import { getUserOpenPullRequests, getMyIssueKeys } from 'jira-utils';
 import jiraConfig from '../../jira.config.json' assert { type: 'json' };
 
-async function collectAccomplishments(): Promise<readonly Accomplishment[]> {
-  const accomplishments: Accomplishment[] = [];
+async function collectAccomplishmentsForTicket(ticketKey: string): Promise<string[]> {
+  const accomplishments: string[] = [];
 
-  for (;;) {
-    const text = await prompt({
-      prompt: 'What did you accomplish today? (one item per entry)',
-    });
+  const text = await prompt({
+    prompt: `What did you accomplish in ${ticketKey}?`,
+  });
 
-    if (text) {
-      accomplishments.push({ text });
-    }
+  if (text) {
+    accomplishments.push(text);
 
-    const more = await confirm({
-      prompt: 'Anything else accomplished?',
-      defaultValue: true,
-    });
-
-    if (!more) {
-      break;
+    for (;;) {
+      const nextText = await promptMore('Anything else for this ticket?');
+      if (!nextText) {
+        break;
+      }
+      accomplishments.push(nextText);
     }
   }
 
   return accomplishments;
 }
 
-async function collectCompletedTickets(company: string): Promise<readonly CompletedTicket[]> {
+async function collectCompletedTickets(
+  company: string,
+  issueKeys: string[]
+): Promise<readonly CompletedTicket[]> {
   const completed: CompletedTicket[] = [];
 
-  for (;;) {
-    const ticketKey = await prompt({
-      prompt: 'Any ticket completed today? (enter ticket key like ABC-123, or leave blank if none)',
-    });
+  const ticketKey = await prompt({
+    prompt: 'Any ticket completed today? (Tab for autocomplete)',
+    autocomplete: issueKeys,
+  });
 
-    if (!ticketKey) {
-      break;
-    }
-
+  if (ticketKey) {
     let openPullRequests: { branchName: string; title: string; prLink: string }[] = [];
     try {
       openPullRequests = await getUserOpenPullRequests({
@@ -53,6 +50,25 @@ async function collectCompletedTickets(company: string): Promise<readonly Comple
         username: jiraConfig.email,
         apiToken: jiraConfig.bitbucketToken,
       });
+
+      if (openPullRequests.length > 0 && openPullRequests[0]) {
+        const firstPR = openPullRequests[0];
+        console.log(
+          chalk.cyan('\nFound open PR:'),
+          chalk.green(firstPR.title),
+          chalk.dim(`(${firstPR.branchName})`)
+        );
+        console.log(chalk.dim(firstPR.prLink));
+
+        const usePR = await confirm({
+          prompt: 'Use this PR for the report?',
+          defaultValue: true,
+        });
+
+        if (!usePR) {
+          openPullRequests = [];
+        }
+      }
     } catch {
       console.log(chalk.yellow('Could not fetch PRs for ticket:', ticketKey));
     }
@@ -63,13 +79,49 @@ async function collectCompletedTickets(company: string): Promise<readonly Comple
       pullRequests: openPullRequests,
     });
 
-    const more = await confirm({
-      prompt: 'Any other tickets completed?',
-      defaultValue: true,
-    });
+    for (;;) {
+      const nextTicket = await promptMore('Any other tickets completed?', issueKeys);
+      if (!nextTicket) {
+        break;
+      }
 
-    if (!more) {
-      break;
+      let nextPRs: { branchName: string; title: string; prLink: string }[] = [];
+      try {
+        nextPRs = await getUserOpenPullRequests({
+          workspace: jiraConfig.workspace,
+          issueKey: nextTicket,
+          selectedUser: 'cxviera',
+          username: jiraConfig.email,
+          apiToken: jiraConfig.bitbucketToken,
+        });
+
+        if (nextPRs.length > 0 && nextPRs[0]) {
+          const firstPR = nextPRs[0];
+          console.log(
+            chalk.cyan('\nFound open PR:'),
+            chalk.green(firstPR.title),
+            chalk.dim(`(${firstPR.branchName})`)
+          );
+          console.log(chalk.dim(firstPR.prLink));
+
+          const usePR = await confirm({
+            prompt: 'Use this PR for the report?',
+            defaultValue: true,
+          });
+
+          if (!usePR) {
+            nextPRs = [];
+          }
+        }
+      } catch {
+        console.log(chalk.yellow('Could not fetch PRs for ticket:', nextTicket));
+      }
+
+      const nextTicketInfo = createTicketInfo(company, nextTicket);
+      completed.push({
+        ...nextTicketInfo,
+        pullRequests: nextPRs,
+      });
     }
   }
 
@@ -89,30 +141,16 @@ async function collectPullRequest(
     const firstTicket = ticketsWithPRs[0];
     if (firstTicket?.pullRequests[0]) {
       const firstPR = firstTicket.pullRequests[0];
-      console.log(
-        chalk.cyan('\nFound open PR:'),
-        chalk.green(firstPR.title),
-        chalk.dim(`(${firstPR.branchName})`)
-      );
-      console.log(chalk.dim(firstPR.prLink));
-
-      const useFetchedPr = await confirm({
-        prompt: 'Use this PR?',
-        defaultValue: true,
-      });
-
-      if (useFetchedPr) {
-        return {
-          label: firstPR.branchName,
-          url: firstPR.prLink,
-        };
-      }
+      return {
+        label: firstPR.branchName,
+        url: firstPR.prLink,
+      };
     }
   }
 
   const hasPr = await confirm({
     prompt: 'Is there a pull request for the completed work?',
-    defaultValue: ticketsWithPRs.length === 0,
+    defaultValue: false,
   });
 
   if (!hasPr) {
@@ -148,6 +186,16 @@ async function collectPullRequest(
 async function main(): Promise<void> {
   console.log(chalk.bold.cyan('\n=== End of Day Update (Slack Markdown) ===\n'));
 
+  console.log(chalk.dim('Fetching your issue keys...'));
+  const issueKeys = await getMyIssueKeys({
+    host: jiraConfig.host,
+    email: jiraConfig.email,
+    apiToken: jiraConfig.apiToken,
+    batchSize: 100,
+    delayMs: 250,
+  });
+  console.log(chalk.green(`✓ Found ${String(issueKeys.length)} issue keys\n`));
+
   const producerInput = await prompt({
     prompt: 'Who is the producer? (e.g. @alex)',
   });
@@ -158,14 +206,21 @@ async function main(): Promise<void> {
   });
 
   const ticketKeys = await promptArray(
-    'Ticket keys you worked on today (space-separated, e.g. ABC-123 DEF-456)'
+    'Ticket keys you worked on today (space-separated, Tab for autocomplete)',
+    issueKeys
   );
 
-  const tickets = ticketKeys.map((key) => createTicketInfo(company, key));
+  const tickets: TicketInfo[] = [];
+  for (const key of ticketKeys) {
+    const ticket = createTicketInfo(company, key);
+    const accomplishments = await collectAccomplishmentsForTicket(key);
+    tickets.push({
+      ...ticket,
+      accomplishments,
+    });
+  }
 
-  const accomplishments = await collectAccomplishments();
-
-  const completedTickets = await collectCompletedTickets(company);
+  const completedTickets = await collectCompletedTickets(company, issueKeys);
 
   const status = await prompt({
     prompt: 'Current status/progress',
@@ -185,7 +240,6 @@ async function main(): Promise<void> {
     producer,
     company,
     tickets,
-    accomplishments,
     completedTickets,
     status,
     pullRequest,

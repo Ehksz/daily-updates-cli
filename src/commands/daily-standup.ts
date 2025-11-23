@@ -1,12 +1,46 @@
 import chalk from 'chalk';
-import { prompt, promptArray } from '../utils/prompt.js';
+import { prompt, promptArray, promptMore } from '../utils/prompt.js';
 import { createTicketInfo, normalizeProducerHandle } from '../utils/jira.js';
 import { copyToClipboard } from '../utils/clipboard.js';
 import { formatStandupMessage } from '../formatters/standup.js';
-import { DailyStandupAnswers } from '../types.js';
+import { DailyStandupAnswers, TicketInfo } from '../types.js';
+import { getMyIssueKeys } from 'jira-utils';
+import jiraConfig from '../../jira.config.json' assert { type: 'json' };
+
+async function collectAccomplishmentsForTicket(ticketKey: string): Promise<string[]> {
+  const accomplishments: string[] = [];
+
+  const text = await prompt({
+    prompt: `What did you accomplish in ${ticketKey}?`,
+  });
+
+  if (text) {
+    accomplishments.push(text);
+
+    for (;;) {
+      const nextText = await promptMore('Anything else for this ticket?');
+      if (!nextText) {
+        break;
+      }
+      accomplishments.push(nextText);
+    }
+  }
+
+  return accomplishments;
+}
 
 async function main(): Promise<void> {
   console.log(chalk.bold.cyan('\n=== Daily Standup Questions (Markdown) ===\n'));
+
+  console.log(chalk.dim('Fetching your issue keys...'));
+  const issueKeys = await getMyIssueKeys({
+    host: jiraConfig.host,
+    email: jiraConfig.email,
+    apiToken: jiraConfig.apiToken,
+    batchSize: 100,
+    delayMs: 250,
+  });
+  console.log(chalk.green(`✓ Found ${String(issueKeys.length)} issue keys\n`));
 
   const producerInput = await prompt({
     prompt: 'Who is the producer? (e.g. @alex)',
@@ -18,10 +52,19 @@ async function main(): Promise<void> {
   });
 
   const ticketKeys = await promptArray(
-    "Ticket keys you're working on (space-separated, e.g. ABC-123 DEF-456)"
+    "Ticket keys you're working on (space-separated, Tab for autocomplete)",
+    issueKeys
   );
 
-  const tickets = ticketKeys.map((key) => createTicketInfo(company, key));
+  const tickets: TicketInfo[] = [];
+  for (const key of ticketKeys) {
+    const ticket = createTicketInfo(company, key);
+    const accomplishments = await collectAccomplishmentsForTicket(key);
+    tickets.push({
+      ...ticket,
+      accomplishments,
+    });
+  }
 
   const estimateExceeded = await prompt({
     prompt:

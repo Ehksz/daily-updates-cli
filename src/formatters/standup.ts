@@ -1,8 +1,19 @@
-import { DailyStandupAnswers } from '../types.js';
-import { formatTicketsAsMarkdown } from '../utils/jira.js';
+import { DailyStandupAnswers, TicketInfo } from '../types.js';
+
+function formatTicketsWithAccomplishments(tickets: readonly TicketInfo[]): string {
+  return tickets
+    .map((ticket) => {
+      const accomplishmentsList =
+        ticket.accomplishments.length > 0
+          ? '\n' + ticket.accomplishments.map((acc) => `  * ${acc}`).join('\n')
+          : '';
+      return `* [${ticket.key}](${ticket.url})${accomplishmentsList}`;
+    })
+    .join('\n');
+}
 
 export function formatStandupMessage(answers: DailyStandupAnswers): string {
-  const ticketsFormatted = formatTicketsAsMarkdown(answers.tickets);
+  const ticketsFormatted = formatTicketsWithAccomplishments(answers.tickets);
 
   return `*Producer:* ${answers.producer}
 

@@ -1,6 +1,7 @@
 export interface TicketInfo {
   readonly key: string;
   readonly url: string;
+  readonly accomplishments: string[];
 }
 
 export interface DailyStandupAnswers {
@@ -12,10 +13,6 @@ export interface DailyStandupAnswers {
   readonly timeRemaining: string;
   readonly completionDate: string;
   readonly blockers: string;
-}
-
-export interface Accomplishment {
-  readonly text: string;
 }
 
 export interface CompletedTicket {
@@ -37,7 +34,6 @@ export interface EodUpdateAnswers {
   readonly producer: string;
   readonly company: string;
   readonly tickets: readonly TicketInfo[];
-  readonly accomplishments: readonly Accomplishment[];
   readonly completedTickets: readonly CompletedTicket[];
   readonly status: string;
   readonly pullRequest: PullRequest | null;
@@ -48,6 +44,7 @@ export interface EodUpdateAnswers {
 export interface PromptOptions {
   readonly prompt: string;
   readonly defaultValue?: string;
+  readonly autocomplete?: string[];
 }
 
 export interface ConfirmOptions {

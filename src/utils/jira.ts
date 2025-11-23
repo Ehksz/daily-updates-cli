@@ -4,7 +4,10 @@ export function buildJiraUrl(company: string, ticketKey: string): string {
   return `https://${company}.atlassian.net/browse/${ticketKey}`;
 }
 
-export function createTicketInfo(company: string, ticketKey: string): TicketInfo {
+export function createTicketInfo(
+  company: string,
+  ticketKey: string
+): Omit<TicketInfo, 'accomplishments'> {
   return {
     key: ticketKey,
     url: buildJiraUrl(company, ticketKey),
